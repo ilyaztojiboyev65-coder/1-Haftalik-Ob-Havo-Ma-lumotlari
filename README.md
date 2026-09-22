@@ -1,0 +1,1 @@
+# 1-Haftalik-Ob-Havo-Ma-lumotlari
