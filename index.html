@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="uz" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ob-Havo Portal | 7 Kunlik Real vaqt Prognozi</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            900: '#0c4a6e',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Chart.js for Interactive Temperature Graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Google Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+        
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .glass-panel-light {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        /* Dynamic Gradients for Weather Conditions */
+        .bg-gradient-sunny {
+            background: linear-gradient(135deg, #0284c7 0%, #1d4ed8 50%, #0f172a 100%);
+        }
+        .bg-gradient-cloudy {
+            background: linear-gradient(135deg, #475569 0%, #334155 50%, #0f172a 100%);
+        }
+        .bg-gradient-rainy {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 60%, #020617 100%);
+        }
+        .bg-gradient-snowy {
+            background: linear-gradient(135deg, #334155 0%, #1e293b 50%, #0c4a6e 100%);
+        }
+        
+        /* Light mode gradients */
+        .light .bg-gradient-sunny {
+            background: linear-gradient(135deg, #e0f2fe 0%, #7dd3fc 50%, #38bdf8 100%);
+        }
+        .light .bg-gradient-cloudy {
+            background: linear-gradient(135deg, #f1f5f9 0%, #cbd5e1 50%, #94a3b8 100%);
+        }
+        .light .bg-gradient-rainy {
+            background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 50%, #64748b 100%);
+        }
+
+        /* Pulse Loading Animation */
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 0.8; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.03); }
+        }
+        .animate-glow {
+            animation: pulseGlow 3s infinite ease-in-out;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen text-slate-100 bg-gradient-sunny transition-all duration-700 flex flex-col justify-between" id="appBody">
+
+    <!-- Top Navigation Header -->
+    <header class="container mx-auto px-4 py-5">
+        <div class="flex flex-col lg:flex-row items-center justify-between gap-4">
+            
+            <!-- Brand & Title -->
+            <div class="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-start">
+                <div class="flex items-center gap-3">
+                    <div class="p-3 bg-sky-500/20 backdrop-blur-md rounded-2xl border border-sky-400/30 text-sky-400 shadow-lg animate-glow">
+                        <i data-lucide="cloud-sun-rain" class="w-8 h-8"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-black tracking-tight text-white flex items-center gap-2">
+                            Ob-Havo <span class="bg-clip-text text-transparent bg-gradient-to-r from-sky-400 to-cyan-300">24/7</span>
+                        </h1>
+                        <p class="text-xs text-sky-200/80 font-medium">Real vaqt va 7 kunlik prognoz portali</p>
+                    </div>
+                </div>
+
+                <!-- Mobile Theme & Unit Toggle -->
+                <div class="flex items-center gap-2 lg:hidden">
+                    <button onclick="toggleTheme()" class="p-2.5 glass-panel rounded-xl text-slate-200">
+                        <i data-lucide="moon" class="w-5 h-5 theme-icon-btn"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Search Form and Location Auto-Detect -->
+            <div class="w-full lg:max-w-xl space-y-2">
+                <form id="searchForm" class="relative flex items-center gap-2">
+                    <div class="relative flex-grow">
+                        <input type="text" id="cityInput" placeholder="Shahar nomini kiriting (masalan: Toshkent, Samarkand, London)..." 
+                            autocomplete="off"
+                            class="w-full pl-11 pr-24 py-3.5 rounded-2xl glass-panel text-white placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-400/60 transition-all duration-300 text-sm shadow-xl">
+                        <i data-lucide="search" class="absolute left-4 top-4 w-4 h-4 text-slate-300"></i>
+                        <button type="submit" class="absolute right-2 top-2 px-4 py-1.5 bg-sky-500 hover:bg-sky-400 text-white font-semibold text-xs rounded-xl transition duration-200 shadow-md">
+                            Qidirish
+                        </button>
+                    </div>
+
+                    <!-- GPS Location Button -->
+                    <button type="button" onclick="detectGPSLocation()" title="Mening joylashuvim"
+                        class="p-3.5 glass-panel hover:bg-white/20 rounded-2xl text-sky-300 transition duration-200 flex-shrink-0 shadow-lg">
+                        <i data-lucide="crosshair" class="w-5 h-5"></i>
+                    </button>
+                </form>
+
+                <!-- Quick Regional Buttons -->
+                <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 text-xs">
+                    <span class="text-[11px] text-sky-200/70 font-semibold uppercase tracking-wider mr-1">Hududlar:</span>
+                    <button onclick="fetchWeatherByCity('Toshkent')" class="px-3 py-1 rounded-xl bg-white/10 hover:bg-white/20 whitespace-nowrap transition border border-white/10">Toshkent</button>
+                    <button onclick="fetchWeatherByCity('Samarqand')" class="px-3 py-1 rounded-xl bg-white/10 hover:bg-white/20 whitespace-nowrap transition border border-white/10">Samarqand</button>
+                    <button onclick="fetchWeatherByCity('Farg\'ona')" class="px-3 py-1 rounded-xl bg-white/10 hover:bg-white/20 whitespace-nowrap transition border border-white/10">Farg'ona</button>
+                    <button onclick="fetchWeatherByCity('Andijon')" class="px-3 py-1 rounded-xl bg-white/10 hover:bg-white/20 whitespace-nowrap transition border border-white/10">Andijon</button>
+                    <button onclick="fetchWeatherByCity('Namangan')" class="px-3 py-1 rounded-xl bg-white/10 hover:bg-white/20 whitespace-nowrap transition border border-white/10">Namangan</button>
+                    <button onclick="fetchWeatherByCity('Buxoro')" class="px-3 py-1 rounded-xl bg-white/10 hover:bg-white/20 whitespace-nowrap transition border border-white/10">Buxoro</button>
+                    <button onclick="fetchWeatherByCity('Xiva')" class="px-3 py-1 rounded-xl bg-white/10 hover:bg-white/20 whitespace-nowrap transition border border-white/10">Xiva</button>
+                    <button onclick="fetchWeatherByCity('Qarshi')" class="px-3 py-1 rounded-xl bg-white/10 hover:bg-white/20 whitespace-nowrap transition border border-white/10">Qarshi</button>
+                    <button onclick="fetchWeatherByCity('Termiz')" class="px-3 py-1 rounded-xl bg-white/10 hover:bg-white/20 whitespace-nowrap transition border border-white/10">Termiz</button>
+                    <button onclick="fetchWeatherByCity('Nukus')" class="px-3 py-1 rounded-xl bg-white/10 hover:bg-white/20 whitespace-nowrap transition border border-white/10">Nukus</button>
+                </div>
+            </div>
+
+            <!-- Controls (Units & Theme for Desktop) -->
+            <div class="hidden lg:flex items-center gap-3">
+                <div class="glass-panel p-1 rounded-2xl flex items-center shadow-lg border border-white/20">
+                    <button id="btnCelsius" onclick="setUnit('C')" class="px-4 py-1.5 text-xs font-bold rounded-xl bg-sky-500 text-white transition-all duration-300">°C</button>
+                    <button id="btnFahrenheit" onclick="setUnit('F')" class="px-4 py-1.5 text-xs font-bold rounded-xl text-slate-300 hover:text-white transition-all duration-300">°F</button>
+                </div>
+
+                <button onclick="toggleTheme()" class="p-3 glass-panel rounded-2xl text-slate-200 hover:bg-white/20 transition duration-300 shadow-lg">
+                    <i data-lucide="moon" class="w-5 h-5 theme-icon-btn"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="container mx-auto px-4 py-2 flex-grow">
+        
+        <!-- Status Notification Box -->
+        <div id="statusBox" class="hidden mb-6 p-4 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-100 text-sm flex items-center justify-between backdrop-blur-md">
+            <div class="flex items-center gap-3">
+                <i data-lucide="info" class="w-5 h-5 flex-shrink-0 text-amber-300"></i>
+                <span id="statusMessage">Shahar yuklanmoqda...</span>
+            </div>
+            <button onclick="hideStatus()" class="text-xs underline text-amber-200 hover:text-white">Yopish</button>
+        </div>
+
+        <!-- Main Layout Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Left & Middle Column: Current Weather, Metrics & Graphs -->
+            <div class="lg:col-span-2 space-y-6">
+                
+                <!-- Hero Weather Card -->
+                <div class="glass-panel rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-2xl transition-all duration-500">
+                    <!-- Subtle Glow -->
+                    <div class="absolute -right-20 -top-20 w-80 h-80 bg-sky-400/20 rounded-full blur-3xl pointer-events-none"></div>
+
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 relative z-10">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <i data-lucide="map-pin" class="w-5 h-5 text-sky-400 animate-bounce"></i>
+                                <h2 class="text-2xl sm:text-4xl font-extrabold tracking-tight text-white" id="cityName">Toshkent</h2>
+                                <span class="text-xs px-3 py-1 rounded-full bg-sky-500/20 text-sky-300 border border-sky-400/30 font-semibold" id="countryCode">UZ</span>
+                            </div>
+                            <p class="text-xs sm:text-sm text-sky-100/80 mt-1.5 flex items-center gap-2" id="currentDate">
+                                <i data-lucide="calendar-days" class="w-4 h-4"></i>
+                                <span>--</span>
+                            </p>
+                        </div>
+
+                        <div class="flex items-center gap-3 bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10">
+                            <div id="weatherMainIcon" class="text-sky-300">
+                                <i data-lucide="sun" class="w-12 h-12"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-sky-200">Holat</p>
+                                <p class="text-sm font-bold text-white capitalize" id="weatherDesc">Ochiq musaffo osmon</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Temperature Block -->
+                    <div class="my-8 flex flex-col sm:flex-row items-baseline justify-between border-b border-white/10 pb-6 gap-4">
+                        <div class="flex items-start">
+                            <span class="text-6xl sm:text-8xl font-black tracking-tighter text-white" id="currentTemp">--</span>
+                            <span class="text-3xl font-light text-sky-400 ml-1 mt-2" id="tempUnitDisplay">°C</span>
+                        </div>
+
+                        <div class="text-slate-200 text-xs sm:text-sm space-y-1.5 bg-white/5 p-4 rounded-2xl border border-white/5 w-full sm:w-auto">
+                            <div class="flex justify-between gap-6">
+                                <span class="text-slate-300">Hiss qilinishi:</span>
+                                <span class="font-bold text-white" id="feelsLike">--°C</span>
+                            </div>
+                            <div class="flex justify-between gap-6">
+                                <span class="text-slate-300">Maks / Min harorat:</span>
+                                <span class="font-bold text-white" id="minMaxTemp">--° / --°</span>
+                            </div>
+                            <div class="flex justify-between gap-6">
+                                <span class="text-slate-300">Yog'ingarchilik ehtimoli:</span>
+                                <span class="font-bold text-sky-300" id="precipProb">--%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Key Weather Indicators Grid -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                        <!-- Wind -->
+                        <div class="bg-white/5 hover:bg-white/10 p-4 rounded-2xl border border-white/10 transition duration-300">
+                            <div class="flex items-center gap-2 text-sky-400 mb-1.5">
+                                <i data-lucide="wind" class="w-4 h-4"></i>
+                                <span class="text-xs text-slate-300 font-medium">Shamol</span>
+                            </div>
+                            <p class="text-base sm:text-lg font-bold text-white" id="windSpeed">-- km/h</p>
+                            <span class="text-[10px] text-sky-200/70" id="windDir">Yo'nalish: --</span>
+                        </div>
+
+                        <!-- Humidity -->
+                        <div class="bg-white/5 hover:bg-white/10 p-4 rounded-2xl border border-white/10 transition duration-300">
+                            <div class="flex items-center gap-2 text-sky-400 mb-1.5">
+                                <i data-lucide="droplets" class="w-4 h-4"></i>
+                                <span class="text-xs text-slate-300 font-medium">Namlik</span>
+                            </div>
+                            <p class="text-base sm:text-lg font-bold text-white" id="humidity">--%</p>
+                            <span class="text-[10px] text-sky-200/70" id="humidityStatus">Nisbiylik</span>
+                        </div>
+
+                        <!-- UV Index -->
+                        <div class="bg-white/5 hover:bg-white/10 p-4 rounded-2xl border border-white/10 transition duration-300">
+                            <div class="flex items-center gap-2 text-amber-400 mb-1.5">
+                                <i data-lucide="sun-medium" class="w-4 h-4"></i>
+                                <span class="text-xs text-slate-300 font-medium">UV Indeks</span>
+                            </div>
+                            <p class="text-base sm:text-lg font-bold text-white" id="uvIndex">--</p>
+                            <span class="text-[10px] text-amber-300/80" id="uvStatus">Daraja</span>
+                        </div>
+
+                        <!-- Air Pressure -->
+                        <div class="bg-white/5 hover:bg-white/10 p-4 rounded-2xl border border-white/10 transition duration-300">
+                            <div class="flex items-center gap-2 text-cyan-400 mb-1.5">
+                                <i data-lucide="gauge" class="w-4 h-4"></i>
+                                <span class="text-xs text-slate-300 font-medium">Bosim</span>
+                            </div>
+                            <p class="text-base sm:text-lg font-bold text-white" id="pressure">-- hPa</p>
+                            <span class="text-[10px] text-cyan-200/70">Atmosfera</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hourly Forecast Slider -->
+                <div class="glass-panel rounded-3xl p-6 shadow-xl">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-base font-bold text-white flex items-center gap-2">
+                            <i data-lucide="clock" class="w-5 h-5 text-sky-400"></i>
+                            24 Soatlik Prognoz
+                        </h3>
+                        <span class="text-xs text-sky-200/80">Soatma-soat harorat</span>
+                    </div>
+
+                    <div class="flex gap-3 overflow-x-auto pb-2 pt-1 no-scrollbar" id="hourlyForecastContainer">
+                        <!-- Dynamic hourly cards rendered here -->
+                    </div>
+                </div>
+
+                <!-- Temperature Trend Interactive Chart -->
+                <div class="glass-panel rounded-3xl p-6 shadow-xl">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-base font-bold text-white flex items-center gap-2">
+                            <i data-lucide="trending-up" class="w-5 h-5 text-sky-400"></i>
+                            7 Kunlik Harorat Dinamikasi
+                        </h3>
+                        <span class="text-xs text-sky-200/80">Grafik ko'rinishi</span>
+                    </div>
+                    <div class="h-64 relative w-full">
+                        <canvas id="weatherChart"></canvas>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right Column: 7-Day Extended Forecast Card -->
+            <div class="lg:col-span-1">
+                <div class="glass-panel rounded-3xl p-6 shadow-xl h-full flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-lg font-extrabold text-white flex items-center gap-2">
+                                <i data-lucide="calendar" class="w-5 h-5 text-sky-400"></i>
+                                1 Haftalik Prognoz
+                            </h3>
+                            <span class="text-xs px-2.5 py-1 rounded-lg bg-white/10 text-sky-200 border border-white/10 font-medium">7 kun</span>
+                        </div>
+
+                        <!-- 7-Day Items List -->
+                        <div class="space-y-3" id="weeklyForecastContainer">
+                            <!-- Dynamic 7-day forecast items -->
+                        </div>
+                    </div>
+
+                    <!-- Air Quality & Extra Insight Box -->
+                    <div class="mt-6 space-y-3">
+                        <div class="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 backdrop-blur-md">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="p-2.5 bg-emerald-500/20 rounded-xl text-emerald-400">
+                                        <i data-lucide="leaf" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-slate-300 font-medium">Havo Sifati Indeksi (AQI)</p>
+                                        <p class="text-sm font-bold text-white" id="aqiStatus">Yaxshi (Toza havo)</p>
+                                    </div>
+                                </div>
+                                <span class="w-3 h-3 rounded-full bg-emerald-400 animate-ping"></span>
+                            </div>
+                        </div>
+
+                        <!-- Sunrise & Sunset Box -->
+                        <div class="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-around text-xs">
+                            <div class="flex items-center gap-2 text-amber-300">
+                                <i data-lucide="sunrise" class="w-5 h-5"></i>
+                                <div>
+                                    <p class="text-slate-400">Kun chiqishi</p>
+                                    <p class="font-bold text-white" id="sunriseTime">06:12</p>
+                                </div>
+                            </div>
+                            <div class="h-8 w-px bg-white/10"></div>
+                            <div class="flex items-center gap-2 text-orange-400">
+                                <i data-lucide="sunset" class="w-5 h-5"></i>
+                                <div>
+                                    <p class="text-slate-400">Kun botishi</p>
+                                    <p class="font-bold text-white" id="sunsetTime">18:45</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="container mx-auto px-4 py-6 text-center text-xs text-sky-200/60 border-t border-white/10 mt-8">
+        <p>© 2026 Ob-Havo 24/7 Portal. Barcha huquqlar himoyalangan.</p>
+        <p class="mt-1 text-slate-400">Ma'lumotlar manbai: Open-Meteo Global Satellite & Meteorological API</p>
+    </footer>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Global State Manager
+        const state = {
+            city: 'Toshkent',
+            country: 'UZ',
+            lat: 41.2995,
+            lon: 69.2401,
+            unit: 'C', // 'C' or 'F'
+            isDark: true,
+            weatherData: null,
+            chartInstance: null
+        };
+
+        // Weather Code Interpretation Map (WMO Code standard)
+        const weatherCodeMap = {
+            0: { desc: "Ochiq musaffo osmon", icon: "sun", category: "sunny" },
+            1: { desc: "Asosan ochiq havo", icon: "sun", category: "sunny" },
+            2: { desc: "Biroz bulutli", icon: "cloud-sun", category: "cloudy" },
+            3: { desc: "Bulutli havo", icon: "cloud", category: "cloudy" },
+            45: { desc: "Tumanli havo", icon: "cloud-fog", category: "cloudy" },
+            48: { desc: "Muzlaydigan tuman", icon: "cloud-fog", category: "cloudy" },
+            51: { desc: "Mayin yomg'ir", icon: "cloud-drizzle", category: "rainy" },
+            53: { desc: "O'rtacha yomg'ir", icon: "cloud-rain", category: "rainy" },
+            55: { desc: "Kuchli yomg'ir", icon: "cloud-rain", category: "rainy" },
+            61: { desc: "Kuchsiz yomg'ir yog'ishi", icon: "cloud-rain", category: "rainy" },
+            63: { desc: "Yomg'irli ob-havo", icon: "cloud-rain", category: "rainy" },
+            65: { desc: "Jala yomg'ir", icon: "cloud-lightning", category: "rainy" },
+            71: { desc: "Kuchsiz qor yog'ishi", icon: "snowflake", category: "snowy" },
+            73: { desc: "Qor yog'moqda", icon: "snowflake", category: "snowy" },
+            75: { desc: "Kuchli qor bo'roni", icon: "snowflake", category: "snowy" },
+            80: { desc: "Kalta yomg'ir", icon: "cloud-rain", category: "rainy" },
+            81: { desc: "Jala va shamol", icon: "cloud-rain-wind", category: "rainy" },
+            82: { desc: "Shiddatli jala", icon: "cloud-lightning", category: "rainy" },
+            95: { desc: "Momaqaldiroq", icon: "cloud-lightning", category: "rainy" },
+            96: { desc: "Momaqaldiroq va do'l", icon: "cloud-hail", category: "rainy" }
+        };
+
+        // Fetch City Geocoding Coordinates
+        async function fetchCoordinates(cityName) {
+            showStatus(`${cityName} koordinatalari izlanmoqda...`);
+            try {
+                const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1&language=uz&format=json`;
+                const response = await fetch(geoUrl);
+                const data = await response.json();
+
+                if (data.results && data.results.length > 0) {
+                    const place = data.results[0];
+                    state.city = place.name;
+                    state.country = place.country_code ? place.country_code.toUpperCase() : 'UZ';
+                    state.lat = place.latitude;
+                    state.lon = place.longitude;
+                    hideStatus();
+                    return true;
+                } else {
+                    showStatus(`"${cityName}" topilmadi. Qaytadan urinib ko'ring.`, true);
+                    return false;
+                }
+            } catch (err) {
+                console.error("Geocoding Error:", err);
+                showStatus("Qidiruv xatoligi yuz berdi.", true);
+                return false;
+            }
+        }
+
+        // Fetch Weather Forecast from Open-Meteo
+        async function fetchWeatherData() {
+            showStatus(`${state.city} uchun 7 kunlik ma'lumotlar yuklanmoqda...`);
+            try {
+                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${state.lat}&longitude=${state.lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max&timezone=auto`;
+                
+                const response = await fetch(weatherUrl);
+                const data = await response.json();
+
+                state.weatherData = data;
+                hideStatus();
+                renderUI();
+            } catch (err) {
+                console.error("Weather Fetch Error:", err);
+                showStatus("Ob-havo ma'lumotlarini yuklashda xatolik.", true);
+            }
+        }
+
+        // Convert Temperature according to unit state
+        function formatTemp(tempC) {
+            if (tempC === undefined || tempC === null) return '--';
+            if (state.unit === 'F') {
+                return Math.round((tempC * 9/5) + 32);
+            }
+            return Math.round(tempC);
+        }
+
+        // Wind direction degrees to text compass
+        function getWindDirectionText(deg) {
+            const directions = ['Shimoliy', 'Shimoli-Sharqiy', 'Sharqiy', 'Janubi-Sharqiy', 'Janubiy', 'Janubi-G'arbiy', 'G'arbiy', 'Shimoli-G'arbiy'];
+            return directions[Math.round(deg / 45) % 8];
+        }
+
+        // Render Entire UI
+        function renderUI() {
+            if (!state.weatherData) return;
+
+            const current = state.weatherData.current;
+            const daily = state.weatherData.daily;
+            const hourly = state.weatherData.hourly;
+
+            // City & Country
+            document.getElementById('cityName').textContent = state.city;
+            document.getElementById('countryCode').textContent = state.country;
+
+            // Date Formatting
+            const dateOpts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const todayStr = new Date().toLocaleDateString('uz-UZ', dateOpts);
+            document.getElementById('currentDate').innerHTML = `<i data-lucide="calendar-days" class="w-4 h-4"></i> ${todayStr}`;
+
+            // Current Condition Info
+            const wCode = current.weather_code || 0;
+            const codeInfo = weatherCodeMap[wCode] || { desc: "Ochiq", icon: "sun", category: "sunny" };
+
+            document.getElementById('weatherDesc').textContent = codeInfo.desc;
+            document.getElementById('currentTemp').textContent = formatTemp(current.temperature_2m);
+            document.getElementById('tempUnitDisplay').textContent = `°${state.unit}`;
+            document.getElementById('feelsLike').textContent = `${formatTemp(current.apparent_temperature)}°${state.unit}`;
+            
+            // Min/Max for today
+            const maxToday = formatTemp(daily.temperature_2m_max[0]);
+            const minToday = formatTemp(daily.temperature_2m_min[0]);
+            document.getElementById('minMaxTemp').textContent = `${maxToday}° / ${minToday}°`;
+
+            // Precip Prob
+            const precipProb = daily.precipitation_probability_max ? daily.precipitation_probability_max[0] : 0;
+            document.getElementById('precipProb').textContent = `${precipProb}%`;
+
+            // Weather Icon Update
+            const iconContainer = document.getElementById('weatherMainIcon');
+            iconContainer.innerHTML = `<i data-lucide="${codeInfo.icon}" class="w-12 h-12"></i>`;
+
+            // Dynamic Background Update
+            updateBackgroundTheme(codeInfo.category);
+
+            // Metrics
+            document.getElementById('windSpeed').textContent = `${Math.round(current.wind_speed_10m)} km/h`;
+            document.getElementById('windDir').textContent = `Yo'nalish: ${getWindDirectionText(current.wind_direction_10m)}`;
+            document.getElementById('humidity').textContent = `${current.relative_humidity_2m}%`;
+            document.getElementById('pressure').textContent = `${Math.round(current.surface_pressure)} hPa`;
+            
+            const uvVal = daily.uv_index_max ? daily.uv_index_max[0].toFixed(1) : '3.5';
+            document.getElementById('uvIndex').textContent = uvVal;
+            document.getElementById('uvStatus').textContent = uvVal > 6 ? 'Yuqori' : (uvVal > 3 ? 'O\'rtacha' : 'Past');
+
+            // Sunrise / Sunset
+            if (daily.sunrise && daily.sunset) {
+                const sr = new Date(daily.sunrise[0]).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
+                const ss = new Date(daily.sunset[0]).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
+                document.getElementById('sunriseTime').textContent = sr;
+                document.getElementById('sunsetTime').textContent = ss;
+            }
+
+            // Render Hourly Forecast
+            renderHourly(hourly);
+
+            // Render 7-Day Forecast List
+            renderWeekly(daily);
+
+            // Render Chart
+            renderChart(daily);
+
+            // Re-initialize Lucide Icons
+            lucide.createIcons();
+        }
+
+        // Render 24-Hour Horizontal Slider
+        function renderHourly(hourly) {
+            const container = document.getElementById('hourlyForecastContainer');
+            container.innerHTML = '';
+
+            const nowHour = new Date().getHours();
+            
+            // Next 24 hours
+            for (let i = nowHour; i < nowHour + 24 && i < hourly.time.length; i++) {
+                const timeStr = new Date(hourly.time[i]).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
+                const tempVal = formatTemp(hourly.temperature_2m[i]);
+                const code = hourly.weather_code[i] || 0;
+                const info = weatherCodeMap[code] || { icon: 'sun' };
+
+                const card = document.createElement('div');
+                card.className = 'flex-shrink-0 flex flex-col items-center justify-between p-3.5 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/5 min-w-[80px] transition-all cursor-pointer';
+                card.innerHTML = `
+                    <span class="text-xs text-slate-300 font-medium">${i === nowHour ? 'Hozir' : timeStr}</span>
+                    <div class="my-2 text-sky-300">
+                        <i data-lucide="${info.icon}" class="w-6 h-6"></i>
+                    </div>
+                    <span class="text-sm font-extrabold text-white">${tempVal}°</span>
+                `;
+                container.appendChild(card);
+            }
+        }
+
+        // Render 7-Day Weekly List
+        function renderWeekly(daily) {
+            const container = document.getElementById('weeklyForecastContainer');
+            container.innerHTML = '';
+
+            const daysUz = ['Yakshanba', 'Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba'];
+
+            for (let i = 0; i < daily.time.length && i < 7; i++) {
+                const dateObj = new Date(daily.time[i]);
+                const dayName = i === 0 ? 'Bugun' : daysUz[dateObj.getDay()];
+                const dateFormatted = `${dateObj.getDate()}-${dateObj.toLocaleString('uz-UZ', { month: 'short' })}`;
+                
+                const maxT = formatTemp(daily.temperature_2m_max[i]);
+                const minT = formatTemp(daily.temperature_2m_min[i]);
+                const code = daily.weather_code[i] || 0;
+                const info = weatherCodeMap[code] || { desc: 'Ochiq', icon: 'sun' };
+
+                const isToday = i === 0;
+                const activeStyle = isToday ? 'bg-sky-500/25 border-sky-400/40 shadow-lg' : 'bg-white/5 hover:bg-white/10 border-white/5';
+
+                const card = document.createElement('div');
+                card.className = `flex items-center justify-between p-3.5 rounded-2xl border backdrop-blur-md transition-all duration-200 ${activeStyle}`;
+                card.innerHTML = `
+                    <div class="flex items-center gap-3 w-5/12">
+                        <div class="p-2 bg-white/10 rounded-xl text-sky-300 flex-shrink-0">
+                            <i data-lucide="${info.icon}" class="w-5 h-5"></i>
+                        </div>
+                        <div class="truncate">
+                            <p class="text-xs font-bold text-white truncate">${dayName}</p>
+                            <p class="text-[10px] text-sky-200/70">${dateFormatted}</p>
+                        </div>
+                    </div>
+                    <div class="text-center w-3/12">
+                        <span class="text-[11px] text-slate-200 truncate block font-medium">${info.desc}</span>
+                    </div>
+                    <div class="flex items-center justify-end gap-2 w-4/12 text-right">
+                        <span class="text-sm font-black text-white">${maxT}°</span>
+                        <span class="text-xs text-slate-400 font-light">${minT}°</span>
+                    </div>
+                `;
+                container.appendChild(card);
+            }
+        }
+
+        // Render Chart.js Temperature Trend
+        function renderChart(daily) {
+            const ctx = document.getElementById('weatherChart').getContext('2d');
+            
+            const labels = daily.time.map((t, idx) => {
+                if (idx === 0) return 'Bugun';
+                const d = new Date(t);
+                return d.toLocaleDateString('uz-UZ', { weekday: 'short' });
+            });
+
+            const maxData = daily.temperature_2m_max.map(t => formatTemp(t));
+            const minData = daily.temperature_2m_min.map(t => formatTemp(t));
+
+            if (state.chartInstance) {
+                state.chartInstance.destroy();
+            }
+
+            state.chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: `Maksimal (${state.unit})`,
+                            data: maxData,
+                            borderColor: '#38bdf8',
+                            backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                            fill: true,
+                            tension: 0.4,
+                            borderWidth: 3,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#0284c7'
+                        },
+                        {
+                            label: `Minimal (${state.unit})`,
+                            data: minData,
+                            borderColor: '#94a3b8',
+                            backgroundColor: 'transparent',
+                            borderDash: [5, 5],
+                            tension: 0.4,
+                            borderWidth: 2,
+                            pointRadius: 3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#e2e8f0', font: { family: 'Inter', size: 11 } }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#cbd5e1', font: { family: 'Inter', size: 11 } },
+                            grid: { display: false }
+                        },
+                        y: {
+                            ticks: { color: '#cbd5e1', font: { family: 'Inter', size: 11 } },
+                            grid: { color: 'rgba(255, 255, 255, 0.08)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Dynamic Background Update based on Category
+        function updateBackgroundTheme(category) {
+            const body = document.getElementById('appBody');
+            body.className = body.className.replace(/bg-gradient-\S+/g, '');
+            body.classList.add(`bg-gradient-${category || 'sunny'}`);
+        }
+
+        // Change City Search Action
+        async function fetchWeatherByCity(cityName) {
+            const success = await fetchCoordinates(cityName);
+            if (success) {
+                await fetchWeatherData();
+            }
+        }
+
+        // Browser Geolocation / GPS Auto Detect
+        function detectGPSLocation() {
+            if ("geolocation" in navigator) {
+                showStatus("Joylashuvingiz aniqlanmoqda...");
+                navigator.geolocation.getCurrentPosition(
+                    async (position) => {
+                        state.lat = position.coords.latitude;
+                        state.lon = position.coords.longitude;
+                        state.city = "Mening joylashuvim";
+                        state.country = "GPS";
+                        await fetchWeatherData();
+                    },
+                    (error) => {
+                        showStatus("GPS joylashuvni aniqlab bo'lmadi. Shahar nomini izlang.", true);
+                    }
+                );
+            } else {
+                showStatus("Brauzeringizda GPS qo'llab-quvvatlanmaydi.", true);
+            }
+        }
+
+        // Temperature Unit Switcher
+        function setUnit(unit) {
+            if (state.unit === unit) return;
+            state.unit = unit;
+
+            const btnC = document.getElementById('btnCelsius');
+            const btnF = document.getElementById('btnFahrenheit');
+
+            if (unit === 'C') {
+                btnC.className = "px-4 py-1.5 text-xs font-bold rounded-xl bg-sky-500 text-white transition-all duration-300";
+                btnF.className = "px-4 py-1.5 text-xs font-bold rounded-xl text-slate-300 hover:text-white transition-all duration-300";
+            } else {
+                btnF.className = "px-4 py-1.5 text-xs font-bold rounded-xl bg-sky-500 text-white transition-all duration-300";
+                btnC.className = "px-4 py-1.5 text-xs font-bold rounded-xl text-slate-300 hover:text-white transition-all duration-300";
+            }
+
+            renderUI();
+        }
+
+        // Theme Toggle Action (Dark / Light)
+        function toggleTheme() {
+            state.isDark = !state.isDark;
+            const html = document.documentElement;
+            if (state.isDark) {
+                html.classList.add('dark');
+            } else {
+                html.classList.remove('dark');
+            }
+        }
+
+        // Status Box Helpers
+        function showStatus(msg, isError = false) {
+            const box = document.getElementById('statusBox');
+            const txt = document.getElementById('statusMessage');
+            txt.textContent = msg;
+            box.classList.remove('hidden');
+            if (isError) {
+                box.className = "mb-6 p-4 rounded-2xl bg-red-500/20 border border-red-500/40 text-red-100 text-sm flex items-center justify-between backdrop-blur-md";
+            } else {
+                box.className = "mb-6 p-4 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-100 text-sm flex items-center justify-between backdrop-blur-md";
+            }
+        }
+
+        function hideStatus() {
+            document.getElementById('statusBox').classList.add('hidden');
+        }
+
+        // Form Submit
+        document.getElementById('searchForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const val = document.getElementById('cityInput').value.trim();
+            if (val) {
+                fetchWeatherByCity(val);
+                document.getElementById('cityInput').value = '';
+            }
+        });
+
+        // App Initialization
+        window.onload = function() {
+            lucide.createIcons();
+            fetchWeatherByCity('Toshkent');
+        };
+    </script>
+</body>
+</html>
